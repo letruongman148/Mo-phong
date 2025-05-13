@@ -8,9 +8,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
+        }
+        .chart-container {
+            width: 100%;
+            margin-top: 20px;
         }
     </style>
 </head>
@@ -52,6 +57,9 @@
             <div id="results" class="text-gray-700">
                 <p>Vui lòng nhấn nút "Mô phỏng" để xem kết quả.</p>
             </div>
+            <div class="chart-container">
+                <canvas id="capitalChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -77,6 +85,7 @@
             let targetProfit = targetReturn;
             let reachedTarget = false;
             let tradesPerYear = 0;
+            let capitalHistory = [initialCapital]; // Mảng lưu trữ vốn qua các giao dịch
 
             // Tính số giao dịch cần thiết để đạt lợi nhuận mục tiêu
             if (targetReturn > 0) {
@@ -126,6 +135,7 @@
                         resultsHTML += `<li class="text-red-600">Giao dịch ${i}: Thua (-${tradeAmountDisplay.toFixed(2)}) - Vốn: ${currentCapital.toFixed(2)}</li>`;
                     }
 
+                    capitalHistory.push(currentCapital); // Lưu lại vốn sau giao dịch
                     if (currentCapital <= 0) {
                         resultsHTML += `<li class="text-red-700 font-bold">Tài khoản cháy sau ${i} giao dịch.</li>`;
                         break; // Dừng mô phỏng nếu cháy tài khoản
@@ -156,6 +166,83 @@
                 resultsHTML += `<p class="mt-4 font-semibold">Số giao dịch cần thiết trong năm: ${Math.round(tradesPerYear)}</p>`; // Làm tròn số giao dịch
                 resultsHTML += `<p class="font-semibold">Số giao dịch cần thiết trong tháng: ${Math.round(tradesPerYear / 12)}</p>`; // Làm tròn số giao dịch
                 resultsHTML += `<p class="font-semibold">Số giao dịch cần thiết trong tuần: ${Math.round(tradesPerYear / 52)}</p>`; // Làm tròn số giao dịch
+
+                // Tạo chart
+                const ctx = document.getElementById('capitalChart').getContext('2d');
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: Array.from({length: capitalHistory.length}, (_, i) => `Giao dịch ${i}`),
+                        datasets: [{
+                            label: 'Vốn',
+                            data: capitalHistory,
+                            backgroundColor: 'rgba(79, 100, 220, 0.2)', // Màu nền
+                            borderColor: 'rgba(79, 100, 220, 1)', // Màu đường
+                            borderWidth: 2,
+                            fill: false,
+                            pointRadius: 0 // Loại bỏ điểm trên đường
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        title: {
+                            display: true,
+                            text: 'Biến động vốn qua các giao dịch',
+                            fontColor: '#1e293b',
+                            fontSize: 16
+                        },
+                        legend: {
+                            position: 'bottom'
+                        },
+                        scales: {
+                            xAxes: [{
+                                display: true,
+                                scaleLabel: {
+                                    display: true,
+                                    labelString: 'Giao dịch',
+                                    fontColor: '#4b5563'
+                                },
+                                ticks: {
+                                    fontColor: '#6b7280'
+                                }
+                            }],
+                            yAxes: [{
+                                display: true,
+                                scaleLabel: {
+                                    display: true,
+                                    labelString: 'Vốn',
+                                    fontColor: '#4b5563'
+                                },
+                                ticks: {
+                                    beginAtZero: true,
+                                    fontColor: '#6b7280',
+                                    callback: function(value) {
+                                        return value.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+                                    }
+                                }
+                            }]
+                        },
+                        tooltips: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(tooltipItem, data) {
+                                    let label = data.datasets[tooltipItem.datasetIndex].label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += tooltipItem.value.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+                                    return label;
+                                }
+                            }
+                        },
+                        hover: {
+                            mode: 'nearest',
+                            intersect: true
+                        }
+                    }
+                });
+
             } else {
                 resultsHTML = `<p class="text-gray-700">Không thực hiện mô phỏng do không đạt được mục tiêu lợi nhuận.</p>`;
             }

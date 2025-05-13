@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mô phỏng giao dịch</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
+        <h1 class="text-2xl font-semibold text-blue-600 mb-6 text-center">Mô phỏng chuỗi giao dịch</h1>
+        <div class="mb-4">
+            <label for="winRate" class="block text-gray-700 text-sm font-bold mb-2">Tỷ lệ giao dịch thắng (%):</label>
+            <input type="number" id="winRate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="70" min="0" max="100">
+        </div>
+        <div class="mb-4">
+            <label for="riskPerTrade" class="block text-gray-700 text-sm font-bold mb-2">Rủi ro mỗi giao dịch (%):</label>
+            <input type="number" id="riskPerTrade" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="0.8" min="0" max="100">
+        </div>
+        <div class="mb-4">
+            <label for="riskRewardRatio" class="block text-gray-700 text-sm font-bold mb-2">Tỷ lệ Risk:Reward:</label>
+            <input type="number" id="riskRewardRatio" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="2" min="0">
+        </div>
+        <div class="mb-4">
+            <label for="initialCapital" class="block text-gray-700 text-sm font-bold mb-2">Vốn ban đầu:</label>
+            <input type="number" id="initialCapital" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="100" min="0">
+        </div>        
+        <div class="mb-4">
+            <label for="targetReturn" class="block text-gray-700 text-sm font-bold mb-2">Lợi nhuận kỳ vọng năm:</label>
+            <input type="number" id="targetReturn" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="100" min="0">
+        </div>
+        <div class="mb-4">
+            <label for="profitThreshold" class="block text-gray-700 text-sm font-bold mb-2">Ngưỡng lợi nhuận để tăng vốn (%):</label>
+            <input type="number" id="profitThreshold" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="100" min="0">
+        </div>
+        <div class="mb-4">
+            <label for="numSimulatedTrades" class="block text-gray-700 text-sm font-bold mb-2">Số lượng giao dịch muốn mô phỏng:</label>
+            <input type="number" id="numSimulatedTrades" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="192" min="0">
+        </div>
+        <button id="simulateButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Mô phỏng</button>
+
+        <div class="mt-6 p-4 bg-gray-50 rounded-lg shadow-inner">
+            <h2 class="text-lg font-semibold text-gray-800 mb-3">Kết quả mô phỏng:</h2>
+            <div id="results" class="text-gray-700">
+                <p>Vui lòng nhấn nút "Mô phỏng" để xem kết quả.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function simulateTrading() {
+            const winRate = parseFloat(document.getElementById("winRate").value) / 100;
+            const riskPerTrade = parseFloat(document.getElementById("riskPerTrade").value) / 100;
+            const riskRewardRatio = parseFloat(document.getElementById("riskRewardRatio").value);
+            const targetReturn = parseFloat(document.getElementById("targetReturn").value);
+            const initialCapital = parseFloat(document.getElementById("initialCapital").value);
+            const profitThreshold = parseFloat(document.getElementById("profitThreshold").value) / 100;
+            const numSimulatedTrades = parseInt(document.getElementById("numSimulatedTrades").value); // Lấy số lượng giao dịch muốn mô phỏng
+
+            let currentCapital = initialCapital;
+            let resultsHTML = "<ul>";
+            let wins = 0;
+            let losses = 0;
+            let numTrades = 0; // Số giao dịch mặc định
+            let initialCapitalHistory = [initialCapital]; // Mảng lưu lại vốn ban đầu sau mỗi lần tăng vốn
+            let previousCapital = initialCapital;
+            let currentRiskPerTrade = riskPerTrade; // Biến lưu trữ mức rủi ro hiện tại
+            let baseCapital = initialCapital; // Vốn gốc để tính rủi ro
+            let targetProfit = targetReturn;
+            let reachedTarget = false;
+            let tradesPerYear = 0;
+
+            // Tính số giao dịch cần thiết để đạt lợi nhuận mục tiêu
+            if (targetReturn > 0) {
+                let capital = initialCapital;
+                let profit = 0;
+                while (profit < targetProfit) {
+                    tradesPerYear++;
+                    const tradeResult = Math.random() < winRate ? "Thắng" : "Thua";
+                    let tradeAmount = baseCapital * currentRiskPerTrade; // Rủi ro tính trên vốn gốc
+                    if (tradeResult === "Thắng") {
+                        capital += tradeAmount * riskRewardRatio;
+                        profit += tradeAmount * riskRewardRatio;
+                    } else {
+                        capital -= tradeAmount;
+                        profit -= tradeAmount;
+                    }
+                    if (capital <= 0) {
+                        tradesPerYear = Infinity; // Không thể đạt được mục tiêu
+                        break;
+                    }
+                }
+                if (tradesPerYear === Infinity) {
+                    resultsHTML += `<li class="text-red-700 font-bold">Mục tiêu lợi nhuận không thể đạt được với các thông số đã cho.</li>`;
+                    numTrades = 0; // Đặt số giao dịch về 0 để không chạy mô phỏng
+                } else {
+                    numTrades = tradesPerYear; // Cập nhật số giao dịch để chạy mô phỏng trong 1 năm
+                }
+            }
+
+            if (numSimulatedTrades > 0) {
+                numTrades = Math.min(numTrades, numSimulatedTrades);
+            }
+
+
+            if (numTrades > 0) { // Chỉ chạy mô phỏng nếu có số giao dịch hợp lệ
+                for (let i = 1; i <= numTrades; i++) {
+                    const tradeResult = Math.random() < winRate ? "Thắng" : "Thua";
+                    let tradeAmount = baseCapital * currentRiskPerTrade; // Rủi ro tính trên vốn gốc
+                    const tradeAmountDisplay = baseCapital * currentRiskPerTrade; // Hiển thị theo vốn gốc
+                    if (tradeResult === "Thắng") {
+                        currentCapital += tradeAmount * riskRewardRatio;
+                        wins++;
+                        resultsHTML += `<li class="text-green-600">Giao dịch ${i}: Thắng (+${(tradeAmountDisplay * riskRewardRatio).toFixed(2)}) - Vốn: ${currentCapital.toFixed(2)}</li>`;
+                    } else {
+                        currentCapital -= tradeAmount;
+                        losses++;
+                        resultsHTML += `<li class="text-red-600">Giao dịch ${i}: Thua (-${tradeAmountDisplay.toFixed(2)}) - Vốn: ${currentCapital.toFixed(2)}</li>`;
+                    }
+
+                    if (currentCapital <= 0) {
+                        resultsHTML += `<li class="text-red-700 font-bold">Tài khoản cháy sau ${i} giao dịch.</li>`;
+                        break; // Dừng mô phỏng nếu cháy tài khoản
+                    }
+
+                    // Kiểm tra nếu lợi nhuận đạt ngưỡng tăng vốn
+                    if ((currentCapital - initialCapitalHistory[initialCapitalHistory.length - 1]) / initialCapitalHistory[initialCapitalHistory.length - 1] >= profitThreshold) {
+                        initialCapitalHistory.push(currentCapital); // Tăng vốn ban đầu
+                        baseCapital = currentCapital; // Cập nhật vốn gốc
+                        currentRiskPerTrade = riskPerTrade; // Cập nhật mức rủi ro
+                        resultsHTML += `<li class="text-purple-600 font-bold">Vốn tăng lên: ${currentCapital.toFixed(2)}</li>`;
+                    }
+                    previousCapital = currentCapital;
+                }
+
+                const finalCapital = currentCapital;
+                const profit = finalCapital - initialCapitalHistory[0];
+                const returnPercentage = (profit / initialCapitalHistory[0]) * 100;
+
+                resultsHTML += "</ul>";
+                resultsHTML += `<p class="mt-4 font-semibold">Vốn ban đầu: ${initialCapitalHistory[0].toFixed(2)}</p>`;
+                resultsHTML += `<p class="font-semibold">Vốn cuối cùng: ${finalCapital.toFixed(2)}</p>`;
+                resultsHTML += `<p class="font-semibold">Lợi nhuận: ${profit.toFixed(2)}</p>`;
+                resultsHTML += `<p class="font-semibold">Tỷ lệ lợi nhuận: ${returnPercentage.toFixed(2)}%</p>`;
+                resultsHTML += `<p class="font-semibold">Số giao dịch thắng: ${wins}</p>`;
+                resultsHTML += `<p class="font-semibold">Số giao dịch thua: ${losses}</p>`;
+                resultsHTML += `<p class="mt-4 font-semibold">Số giao dịch đã mô phỏng: ${numTrades}</p>`;
+                resultsHTML += `<p class="mt-4 font-semibold">Số giao dịch cần thiết trong năm: ${Math.round(tradesPerYear)}</p>`; // Làm tròn số giao dịch
+                resultsHTML += `<p class="font-semibold">Số giao dịch cần thiết trong tháng: ${Math.round(tradesPerYear / 12)}</p>`; // Làm tròn số giao dịch
+                resultsHTML += `<p class="font-semibold">Số giao dịch cần thiết trong tuần: ${Math.round(tradesPerYear / 52)}</p>`; // Làm tròn số giao dịch
+            } else {
+                resultsHTML = `<p class="text-gray-700">Không thực hiện mô phỏng do không đạt được mục tiêu lợi nhuận.</p>`;
+            }
+
+            document.getElementById("results").innerHTML = resultsHTML;
+        }
+
+        document.getElementById("simulateButton").addEventListener("click", simulateTrading);
+    </script>
+</body>
+</html>

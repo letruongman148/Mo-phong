@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -22,7 +23,7 @@
             <input type="number" id="winRate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="50" min="0" max="100">
         </div>
         <div class="mb-4">
-            <label for="riskPerTrade" class="block text-gray-700 text-sm font-bold mb-2">Rủi ro mỗi giao dịch trên tổng vốn (%):</label>
+            <label for="riskPerTrade" class="block text-gray-700 text-sm font-bold mb-2">Rủi ro mỗi giao dịch (%):</label>
             <input type="number" id="riskPerTrade" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="1" min="0" max="100">
         </div>
         <div class="mb-4">
@@ -48,10 +49,13 @@
             <div id="results" class="text-gray-700">
                 <p>Vui lòng nhấn nút "Mô phỏng" để xem kết quả.</p>
             </div>
+            <button id="exportButton" class="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">Xuất Excel</button>
         </div>
     </div>
 
     <script>
+        const exportButton = document.getElementById("exportButton");
+
         function simulateTrading() {
             const winRate = parseFloat(document.getElementById("winRate").value) / 100;
             const riskPerTrade = parseFloat(document.getElementById("riskPerTrade").value) / 100;
@@ -69,6 +73,7 @@
             let previousCapital = initialCapital;
             let currentRiskPerTrade = riskPerTrade;
             let baseCapital = initialCapital;
+            let data = [];
 
 
             if (numSimulatedTrades > 0) {
@@ -80,10 +85,22 @@
                         currentCapital += tradeAmount * riskRewardRatio;
                         wins++;
                         resultsHTML += `<li class="text-green-600">Giao dịch ${i}: Thắng (+${(tradeAmountDisplay * riskRewardRatio).toFixed(2)}) - Vốn: ${currentCapital.toFixed(2)}</li>`;
+                         data.push({
+                            "Giao dịch": i,
+                            "Kết quả": "Thắng",
+                            "Lợi nhuận": (tradeAmountDisplay * riskRewardRatio).toFixed(2),
+                            "Vốn": currentCapital.toFixed(2)
+                        });
                     } else {
                         currentCapital -= tradeAmount;
                         losses++;
                         resultsHTML += `<li class="text-red-600">Giao dịch ${i}: Thua (-${tradeAmountDisplay.toFixed(2)}) - Vốn: ${currentCapital.toFixed(2)}</li>`;
+                         data.push({
+                            "Giao dịch": i,
+                            "Kết quả": "Thua",
+                            "Lợi nhuận": (-tradeAmountDisplay).toFixed(2),
+                            "Vốn": currentCapital.toFixed(2)
+                        });
                     }
 
 
@@ -119,6 +136,24 @@
             }
 
             document.getElementById("results").innerHTML = resultsHTML;
+
+            // Enable export button and set up event listener
+            exportButton.disabled = false;
+            exportButton.addEventListener("click", function() {
+                // Prepare data for Excel export
+                const wsData = [
+                    ["Giao dịch", "Kết quả", "Lợi nhuận", "Vốn"]
+                ];
+                data.forEach(item => {
+                    wsData.push([item["Giao dịch"], item["Kết quả"], item["Lợi nhuận"], item["Vốn"]]);
+                });
+
+                // Export to Excel
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Results");
+                XLSX.writeFile(wb, "simulation_results.xlsx");
+            }, { once: true }); // Ensure the button only binds the event listener once
         }
 
         document.getElementById("simulateButton").addEventListener("click", simulateTrading);
